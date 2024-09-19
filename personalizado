@@ -1,0 +1,148 @@
+<script>
+  document.addEventListener("DOMContentLoaded", function() {
+    // Função para obter o valor de um parâmetro da URL
+    function getQueryParam(param) {
+      var urlParams = new URLSearchParams(window.location.search);
+      return urlParams.get(param);
+    }
+
+    // Seleciona o campo de entrada pelo ID
+    var telefoneField = document.getElementById('telefone');
+
+    // Verifica se o campo existe
+    if (telefoneField) {
+      // Obtém o valor do parâmetro 'telefone' da URL
+      var telefoneValue = getQueryParam('telefone');
+
+      // Preenche o campo com o valor do parâmetro
+      if (telefoneValue) {
+        telefoneField.value = telefoneValue;
+      }
+    }
+  });
+</script>
+
+<script>
+    const sheetUrl = 'https://docs.google.com/spreadsheets/d/1CYohHpNTWXYmfzDgJYg4ASJZ9AeaKLhz_Pk6SRJruKw/pubhtml?gid=0&single=true';
+
+    // Função para buscar dados da planilha
+    async function fetchSheetData() {
+        try {
+            const response = await fetch(sheetUrl);
+            const text = await response.text();
+            const parser = new DOMParser();
+            const doc = parser.parseFromString(text, 'text/html');
+            const table = doc.querySelector('table');
+            if (table) {
+                const rows = table.querySelectorAll('tr');
+                const data = Array.from(rows).map(row => {
+                    return Array.from(row.querySelectorAll('td')).map(cell => cell.textContent.trim());
+                });
+                return data;
+            } else {
+                throw new Error('Tabela não encontrada na planilha publicada.');
+            }
+        } catch (error) {
+            console.error('Erro ao buscar os dados da planilha:', error);
+            return [];
+        }
+    }
+
+    function replacePlaceholders(text, placeholders) {
+        return text.replace(/\$nome|\$empresa|\$cidade|\$telefone|\$imagem|\$mensagem/g, matched => placeholders[matched] || matched);
+    }
+
+    async function applyDataToPage(telefone) {
+        const sheetData = await fetchSheetData();
+        const row = sheetData.find(row => row[0] === telefone);
+
+        if (row) {
+            const placeholders = {
+                '$telefone': row[0] || 'Telefone não disponível',
+                '$nome': row[1] || 'Nome desconhecido',
+                '$empresa': row[2] || 'Empresa desconhecida',
+                '$cidade': row[3] || 'Cidade não especificada',
+                '$imagem': row[4] || 'https://uploads-ssl.webflow.com/65b04dbe9a61b6dd8fc6aec9/66b3902cb9e4150d47869612_enerlivre-logo.png',
+                '$mensagem': row[5] || 'Olá, bom dia'
+            };
+
+            // Substituir placeholders e configurar mensagem global
+            document.body.innerHTML = replacePlaceholders(document.body.innerHTML, placeholders);
+            window.message = encodeURIComponent(placeholders['$mensagem']);
+            
+            // Recarregar o elemento .walsh-hero-sub-bg para reativar animação
+            reloadHeroSubBg();
+        } else {
+            document.body.innerHTML = 'Dados não encontrados para o telefone fornecido.';
+        }
+    }
+
+    function reloadHeroSubBg() {
+        const bgElement = document.querySelector('.walsh-hero-sub-bg');
+        if (bgElement) {
+            bgElement.style.animation = 'none'; // Remove a animação
+            bgElement.offsetHeight; // Força o reflow
+            bgElement.style.animation = ''; // Reaplica a animação
+        }
+    }
+
+    function init() {
+        const urlParams = new URLSearchParams(window.location.search);
+        const telefone = urlParams.get('telefone');
+
+        if (telefone) {
+            applyDataToPage(telefone);
+        } else {
+            document.body.innerHTML = 'Telefone não fornecido na URL.';
+        }
+    }
+
+    document.addEventListener('DOMContentLoaded', () => {
+        init();
+    });
+</script>
+
+<script>
+    function sendMessage() {
+        const phone = new URLSearchParams(window.location.search).get('telefone');
+        const url = detectar_mobile() ? 
+          `https://api.whatsapp.com/send?phone=${phone}&text=${window.message}` :
+          `https://web.whatsapp.com/send?phone=${phone}&text=${window.message}`;
+
+        window.location.href = url;
+    }
+
+    function detectar_mobile() {
+        return /android|iphone|ipad|ipod|opera mini|iemobile|mobile/i.test(navigator.userAgent);
+    }
+
+    document.addEventListener('DOMContentLoaded', () => {
+        const textArea = document.getElementById('text-whatsapp');
+        textArea.addEventListener('input', () => {
+            const message = encodeURIComponent(textArea.value);
+            const phone = new URLSearchParams(window.location.search).get('telefone');
+            const url = detectar_mobile() ? 
+              `https://api.whatsapp.com/send?phone=${phone}&text=${message}` :
+              `https://web.whatsapp.com/send?phone=${phone}&text=${message}`;
+            
+            document.getElementById('sendMessageBtn').href = url;
+        });
+    });
+</script>
+
+<a id="sendMessageBtn" 
+   class="botao-whatsapp-flutuante-click" 
+   onclick="sendMessage()" 
+   style="position:fixed;width:60px;height:60px;bottom:8%;right:8%;background-color:#25d366;color:#FFF;border-radius:50px;text-align:center;box-shadow: 1px 1px 2px #888; z-index:1000;" 
+   target="_blank">
+  <img id="whatsappLogo" 
+       src="$imagem" 
+       alt="Logo" 
+       style="width:100%; height:100%; border-radius:50%; object-fit:cover;">
+</a>
+
+<div id="whts_widget_box" 
+     style="display: block; opacity: 1; z-index: 999; width: 290px; padding: 16px 22px; position: fixed; bottom: 12%; right: 10%; transition: all 0.3s ease-out; background-color: #fff; border-radius: 5px; box-shadow: 0px 0px 5px 1px rgba(0,0,0,0.2);">
+  <textarea rows="2" id="text-whatsapp" 
+            style="height:auto; max-width: 100%; color:#999; font-weight:400; font-size: 14px; font-family:'Ubuntu', Helvetica, Arial, sans-serif; width:100%; background:#fff; border-radius:3px; border:none; padding:10px; box-shadow:0px 0px 5px 1px rgba(0,0,0,0.1);">$mensagem</textarea>
+</div>
